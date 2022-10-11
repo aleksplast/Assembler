@@ -3,7 +3,7 @@
 
 #include "Config.h"
 
-#define DEBUG
+//#define DEBUG
 
 #ifndef DEBUG
 #define DBG if(false)

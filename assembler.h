@@ -6,7 +6,11 @@
 
 const int version = 1;
 
-int Assembler(const char* input);
+int Assembler(struct asemblr* asemblr);
+
+int AsmCtor(struct asemblr* asemblr, const char* input);
+
+int AsmDetor(struct asemblr* asemblr);
 
 int CheckReg(const char* reg);
 
@@ -16,16 +20,24 @@ int GetLabel(char* arg, struct asemblr* asemblr);
 
 struct asemblr
 {
+    struct poem text;
     char* code;
     int labels[10];
     int ip;
 };
 
-#define DEF_CMD(name, num, arg, code) \
+enum AsmErrors
+{
+    REGERR = 1,
+    LABELERR,
+    ARGERR,
+};
+
+#define DEF_CMD(name, num, arg, code)                                   \
     CMD_##name = num,
 enum Commands
 {
-#include "cmd.h"
+#include "C:\Users\USER\Documents\GitHub\Assembler\cmd.h"
     NOCMD = 18
 };
 #undef DEF_CMD

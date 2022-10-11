@@ -210,7 +210,7 @@ int StackDetor(struct stack* stk)
 
     stk->canaryleft = 0;
     stk->canaryright = 0;
-    stk->capacity = 66666666666;
+    stk->capacity = 0xAB0BAB0BA48AB0BA;
     free(stk->dataguardl);
     stk->data = NULL;
     stk->dataguardl = NULL;

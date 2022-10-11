@@ -4,11 +4,20 @@
 
 int main()
 {
-    FILE* fp = fopen("logs.txt", "w");
-    fclose(fp);
+    FILE* logs = fopen("logs.txt", "w");
+    fclose(logs);
+
     const char* input = "input.txt";
 
-    Assembler(input);
+    struct asemblr asemblr = {};
+
+    AsmCtor(&asemblr, input);
+
+    Assembler(&asemblr);
+
+    Assembler(&asemblr);
+
+    AsmDetor(&asemblr);
 
     return 0;
 }
