@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <strings.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "assembler.h"
 
-int Assembler(struct asemblr* asemblr)
+int AssemblerMain(struct asemblr* asemblr)
 {
     int counter = 0;
 
@@ -17,6 +18,8 @@ int Assembler(struct asemblr* asemblr)
 
         char* line = asemblr->text.Strings[counter].ptr;
 
+        fprintf(asemblr->listing, "%-4d | %-8s |", asemblr->ip, line);
+
         sscanf(line, "%s%n", cmd, &len);
 
 #define DEF_CMD(name, num, arg, cod)                                        \
@@ -27,21 +30,22 @@ if (stricmp(cmd, #name) == 0)                                               \
     {                                                                       \
         GetArg(line + len + 1, asemblr);                                    \
     }                                                                       \
-    if (arg == 2)                                                           \
-    {                                                                       \
-        GetLabel(line + len + 1, asemblr);                                  \
-    }                                                                       \
+    else                                                                    \
+        fprintf(asemblr->listing, " %d", num);                              \
+    fprintf(asemblr->listing, "\n");                                        \
     asemblr->ip++;                                                          \
 }                                                                           \
 else
-#include "C:\Users\USER\Documents\GitHub\Assembler\cmd.h"
+#include "..\Assembler\cmd.h"
 #undef DEF_CMD
 
         if (strchr(cmd, ':'))
         {
             int label = 0;
             sscanf(cmd, "%d", &label);
-            asemblr->labels[label] = asemblr->ip - 3 * sizeof(int);
+            CheckLabel(asemblr, label);
+            asemblr->labels.labelsarray[label] = asemblr->ip - 3 * sizeof(int);
+            fprintf(asemblr->listing, "\n");
         }
         counter++;
     }
@@ -66,20 +70,29 @@ int AsmCtor(struct asemblr* asemblr, const char* input)
 
     asemblr->text = {NULL, 0, 0, NULL};
 
-    for (int i = 0; i < 5; i++)
-        asemblr->labels[i] = 0;
+    if ((asemblr->labels.labelsarray = (int*) calloc(10, sizeof(int))) == NULL)
+        return MEMERR;
+
+    asemblr->labels.labelsnum = 10;
+
+    for (int i = 0; i < 10; i++)
+        asemblr->labels.labelsarray[i] = 0;
 
     TextReader(input, &asemblr->text, mode);
 
     LinesSeparator(&asemblr->text, '\n');
 
-    asemblr->code = (char*) calloc(asemblr->text.nlines * (sizeof(char) * 2 + sizeof(int)) + 3 * sizeof(int), sizeof(char));
+    asemblr->listing = fopen("listing.txt", "w");
+
+    if ((asemblr->code = (char*) calloc(asemblr->text.nlines * (sizeof(char) * 2 + sizeof(int)) + 3 * sizeof(int), sizeof(char))) == NULL)
+        return MEMERR;
 }
 
 int AsmDetor(struct asemblr* asemblr)
 {
     free(asemblr->text.Strings);
     free(asemblr->code);
+    fclose(asemblr->listing);
     asemblr->code = NULL;
     asemblr->ip = -1;
 
@@ -89,10 +102,26 @@ int AsmDetor(struct asemblr* asemblr)
 int GetArg(char* arg, struct asemblr* asemblr)
 {
     char reg[30];
-    int val = 0;
-    int len = 0;
+    elem_t val = 0;
+    int len = 0, label = 0;
+    char* labelptr = NULL;
 
-    if (*arg == '[')
+    if ((labelptr = strchr(arg, ':')) != NULL)
+    {
+        asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_IMMED;
+
+        if (sscanf(arg + 1, "%d", &label) != 1)
+            return LABELERR;
+
+        CheckLabel(asemblr, label);
+
+        *(int*)(asemblr->code + asemblr->ip + 1) = asemblr->labels.labelsarray[label];
+
+        fprintf(asemblr->listing, " %d %d", asemblr->code[asemblr->ip], label);
+
+        asemblr->ip += sizeof(int);
+    }
+    else if (*arg == '[')
     {
         sscanf(arg, "%s%n", reg, &len);
         if (*(arg + len - 1) == ']')
@@ -101,28 +130,35 @@ int GetArg(char* arg, struct asemblr* asemblr)
             *(arg + len - 1) = ' ';
         }
         GetArg(arg + 1, asemblr);
+        *(arg + len - 1) = ']';
     }
-    else if (sscanf(arg, "%d+%s", &val, reg) == 2)
+    else if (sscanf(arg, "%lg+%s", &val, reg) == 2)
     {
         asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_IMMED;
-        *(int*)(asemblr->code + asemblr->ip + 1) = val;
+        *(elem_t*)(asemblr->code + asemblr->ip + 1) = val;
 
         asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_REG;
-        asemblr->code[asemblr->ip + sizeof(int) + 1] = CheckReg(reg);
+        asemblr->code[asemblr->ip + sizeof(elem_t) + 1] = CheckReg(reg);
 
-        asemblr->ip += sizeof(int) + sizeof(char);
+        fprintf(asemblr->listing, " %d %lg %d", asemblr->code[asemblr->ip], val, asemblr->code[asemblr->ip + sizeof(elem_t) + 1]);
+
+        asemblr->ip += sizeof(elem_t) + sizeof(char);
     }
-    else if (sscanf(arg, "%d", &val) == 1)
+    else if (sscanf(arg, "%lg", &val) == 1)
     {
         asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_IMMED;
-        *(int*)(asemblr->code + asemblr->ip + 1) = val;
+        *(elem_t*)(asemblr->code + asemblr->ip + 1) = val;
 
-        asemblr->ip += sizeof(int);
+        fprintf(asemblr->listing, " %d %lg", asemblr->code[asemblr->ip], val);
+
+        asemblr->ip += sizeof(elem_t);
     }
     else if (sscanf(arg, "%s", reg) == 1)
     {
         asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_REG;
         asemblr->code[asemblr->ip + 1] = CheckReg(reg);
+
+        fprintf(asemblr->listing, " %d", asemblr->code[asemblr->ip]);
 
         asemblr->ip += 1;
     }
@@ -153,32 +189,29 @@ int CheckReg(const char* reg)
     return NOERR;
 }
 
-int GetLabel(char* arg, struct asemblr* asemblr)
+int CheckLabel(struct asemblr* asemblr, int label)
 {
-    int label = 0;
-    char* labelptr = NULL;
-    if ((labelptr = strchr(arg, ':')) != NULL)
+    if (asemblr->labels.labelsnum <= label)
     {
-        asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_IMMED;
+        int* prev = asemblr->labels.labelsarray;
 
-        if (sscanf(arg + 1, "%d", &label) != 1)
-            return LABELERR;
+        int* buffer = (int*) realloc(asemblr->labels.labelsarray, sizeof(int) * (label * 2));
 
-        *(int*)(asemblr->code + asemblr->ip + 1) = asemblr->labels[label];
-        asemblr->ip += sizeof(int);
+        if (buffer == NULL)
+            return MEMERR;
+
+        asemblr->labels.labelsarray = buffer;
+
+        for (int i = asemblr->labels.labelsnum; i < label + 2; i++)
+            asemblr->labels.labelsarray[i] = 0;
+
+        if (prev != asemblr->labels.labelsarray)
+            free(prev);
+
+        asemblr->labels.labelsnum = label * 2;
+
+        return NOERR;
     }
     else
-    {
-        asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_IMMED;
-
-        if (sscanf(arg, "%d", &label) != 1)
-            return LABELERR;
-
-        *(int*)(asemblr->code + asemblr->ip + 1) = label;
-        asemblr->ip += sizeof(int);
-    }
-
-    return NOERR;
+        return NOERR;
 }
-
-

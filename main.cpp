@@ -7,15 +7,15 @@ int main()
     FILE* logs = fopen("logs.txt", "w");
     fclose(logs);
 
-    const char* input = "input.txt";
+    const char* input = "quadratka.txt";
 
     struct asemblr asemblr = {};
 
     AsmCtor(&asemblr, input);
 
-    Assembler(&asemblr);
+    AssemblerMain(&asemblr);
 
-    Assembler(&asemblr);
+    AssemblerMain(&asemblr);
 
     AsmDetor(&asemblr);
 
