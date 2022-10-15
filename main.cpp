@@ -7,7 +7,7 @@ int main()
     FILE* logs = fopen("logs.txt", "w");
     fclose(logs);
 
-    const char* input = "quadratka.txt";
+    const char* input = "factorialrec.txt";
 
     struct asemblr asemblr = {};
 

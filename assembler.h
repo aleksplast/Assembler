@@ -16,6 +16,8 @@ int GetArg(char* arg, struct asemblr* asemblr);
 
 int CheckLabel(struct asemblr* asemblr, int label);
 
+int ListingPrint(FILE* out, void* arg, size_t size);
+
 struct labels
 {
     int* labelsarray;

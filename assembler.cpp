@@ -2,6 +2,7 @@
 #include <strings.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <math.h>
 
 #include "assembler.h"
 
@@ -18,23 +19,22 @@ int AssemblerMain(struct asemblr* asemblr)
 
         char* line = asemblr->text.Strings[counter].ptr;
 
-        fprintf(asemblr->listing, "%-4d | %-8s |", asemblr->ip, line);
+        ListingPrint(asemblr->listing, &asemblr->ip, sizeof(int));
+        fprintf(asemblr->listing, " | %-10s |", line);
 
         sscanf(line, "%s%n", cmd, &len);
 
-#define DEF_CMD(name, num, arg, cod)                                        \
-if (stricmp(cmd, #name) == 0)                                               \
-{                                                                           \
-    asemblr->code[asemblr->ip] = CMD_##name;                                \
-    if  (arg == 1)                                                          \
-    {                                                                       \
-        GetArg(line + len + 1, asemblr);                                    \
-    }                                                                       \
-    else                                                                    \
-        fprintf(asemblr->listing, " %d", num);                              \
-    fprintf(asemblr->listing, "\n");                                        \
-    asemblr->ip++;                                                          \
-}                                                                           \
+#define DEF_CMD(name, num, arg, cod)                                                \
+        if (stricmp(cmd, #name) == 0)                                               \
+        {                                                                           \
+            asemblr->code[asemblr->ip] = CMD_##name;                                \
+            if  (arg == 1)                                                          \
+                GetArg(line + len + 1, asemblr);                                    \
+            else                                                                    \
+                fprintf(asemblr->listing, " %02X", num);                            \
+            fprintf(asemblr->listing, "\n");                                        \
+            asemblr->ip++;                                                          \
+        }                                                                           \
 else
 #include "..\Assembler\cmd.h"
 #undef DEF_CMD
@@ -117,7 +117,8 @@ int GetArg(char* arg, struct asemblr* asemblr)
 
         *(int*)(asemblr->code + asemblr->ip + 1) = asemblr->labels.labelsarray[label];
 
-        fprintf(asemblr->listing, " %d %d", asemblr->code[asemblr->ip], label);
+        fprintf(asemblr->listing, " %02X ", asemblr->code[asemblr->ip]);
+        ListingPrint(asemblr->listing, (int*)(asemblr->code + asemblr->ip + 1), sizeof(int));
 
         asemblr->ip += sizeof(int);
     }
@@ -140,7 +141,9 @@ int GetArg(char* arg, struct asemblr* asemblr)
         asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_REG;
         asemblr->code[asemblr->ip + sizeof(elem_t) + 1] = CheckReg(reg);
 
-        fprintf(asemblr->listing, " %d %lg %d", asemblr->code[asemblr->ip], val, asemblr->code[asemblr->ip + sizeof(elem_t) + 1]);
+        fprintf(asemblr->listing, " %02X ", asemblr->code[asemblr->ip]);
+        ListingPrint(asemblr->listing, &val, sizeof(elem_t));
+        ListingPrint(asemblr->listing, &(asemblr->code[asemblr->ip + sizeof(elem_t)]), sizeof(char));
 
         asemblr->ip += sizeof(elem_t) + sizeof(char);
     }
@@ -149,7 +152,8 @@ int GetArg(char* arg, struct asemblr* asemblr)
         asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_IMMED;
         *(elem_t*)(asemblr->code + asemblr->ip + 1) = val;
 
-        fprintf(asemblr->listing, " %d %lg", asemblr->code[asemblr->ip], val);
+        fprintf(asemblr->listing, " %02X ", asemblr->code[asemblr->ip]);
+        ListingPrint(asemblr->listing, &val, sizeof(elem_t));
 
         asemblr->ip += sizeof(elem_t);
     }
@@ -158,7 +162,8 @@ int GetArg(char* arg, struct asemblr* asemblr)
         asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_REG;
         asemblr->code[asemblr->ip + 1] = CheckReg(reg);
 
-        fprintf(asemblr->listing, " %d", asemblr->code[asemblr->ip]);
+        fprintf(asemblr->listing, " %02X %02X", asemblr->code[asemblr->ip], asemblr->code[asemblr->ip + 1]);
+
 
         asemblr->ip += 1;
     }
@@ -214,4 +219,16 @@ int CheckLabel(struct asemblr* asemblr, int label)
     }
     else
         return NOERR;
+}
+
+int ListingPrint(FILE* out, void* arg, size_t size)
+{
+    char* val = (char*) arg;
+    for (int i = 0; i < size; i++)
+        if (*(val + i) >= 0)
+            fprintf(out, "%02X ", *(val + i));
+        else
+            fprintf(out, "%02X ", (-1) * *(val + i));
+
+    return NOERR;
 }

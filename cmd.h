@@ -2,13 +2,19 @@
 #define POP StackPop(&cpu->commands)
 #define PUSH(x) StackPush(&cpu->commands, x)
 
-#define JUMP(x)                                     \
-        val1 = POP;                                 \
-        val2 = POP;                                 \
-        if (val1 x val2)                            \
-            SetLabel(cpu);                          \
-        else                                        \
-            cpu->ip += sizeof(int);                 \
+#define JUMP(sign, numb)                                                    \
+        val1 = POP;                                                         \
+        val2 = POP;                                                         \
+        if (compare(val1, val2) sign numb)                                  \
+            SetLabel(cpu);                                                  \
+        else                                                                \
+            cpu->ip += sizeof(int);                                         \
+        CPUCHECK
+
+#define ARITHOPER(oper)                                                     \
+        val1 = POP;                                                         \
+        val2 = POP;                                                         \
+        PUSH(val1 oper val2);                                               \
         CPUCHECK
 
 
@@ -21,29 +27,24 @@ DEF_CMD(PUSH, 1, 1,
 
 DEF_CMD(ADD, 2 , 0,
     {
-        PUSH(POP + POP);
-        CPUCHECK
+        ARITHOPER(+)
     })
 
 DEF_CMD(SUB, 3, 0,
     {
-        elem_t a = POP;
-        elem_t b = POP;
-        PUSH(a - b);
-        CPUCHECK
+        ARITHOPER(-)
     })
 
 DEF_CMD(MUL, 4, 0,
     {
-        PUSH(POP * POP);
-        CPUCHECK
+        ARITHOPER(*)
     })
 
 DEF_CMD(DIV, 5, 0,
     {
         elem_t a = POP;
         elem_t b = POP;
-        if (b == 0)
+        if (compare(b, 0) == 0)
         {
             printf("Error: cannot divide by 0");
             return ARITHERR;
@@ -61,7 +62,7 @@ DEF_CMD(OUT, 6, 0,
 DEF_CMD(HLT, 7, 0,
     {
         CPUCHECK
-        return 0;
+        return NOERR;
     })
 
 DEF_CMD(IN, 8, 0,
@@ -87,50 +88,50 @@ DEF_CMD(JMP, 10, 1,
 
 DEF_CMD(JB, 11, 1,
     {
-        JUMP(<)
+        JUMP(<=, -1)
     })
 
 DEF_CMD(JBE, 12, 1,
     {
-        JUMP(<=)
+        JUMP(<=, 0)
     })
 
 DEF_CMD(JA, 13, 1,
     {
-        JUMP(>)
+        JUMP(>=, 1)
     })
 
 DEF_CMD(JAE, 14, 1,
     {
-        JUMP(>=)
+        JUMP(>=, 0)
     })
 
 DEF_CMD(JE, 15, 1,
     {
-        JUMP(==)
+        JUMP(==, 0)
     })
 
 DEF_CMD(JNE, 16, 1,
     {
-        JUMP(!=)
+        JUMP(!=, 0)
     })
 
-DEF_CMD(SQRT, 17, 0,
+DEF_CMD(CALL, 17, 1,
+    {
+        StackPush(&cpu->returns, (elem_t) (cpu->ip + sizeof(int)));
+        SetLabel(cpu);
+        CPUCHECK
+    })
+
+DEF_CMD(SQRT, 18, 0,
     {
         elem_t a = POP;
-        if (a < 0)
+        if (compare(a, 0) == -1)
         {
             printf("Error: cannot take square roots of negative numbers");
             return ARITHERR;
         }
         PUSH(sqrt(a));
-        CPUCHECK
-    })
-
-DEF_CMD(CALL, 18, 1,
-    {
-        StackPush(&cpu->returns, (elem_t) (cpu->ip + sizeof(int)));
-        SetLabel(cpu);
         CPUCHECK
     })
 
@@ -149,13 +150,17 @@ DEF_CMD(SQRD, 20, 0,
 
 DEF_CMD(MOD, 21, 0,
     {
-        PUSH((int) POP % 10);
+        int a = (int) POP;
+        int b = (int) POP;
+        PUSH(a % b);
         CPUCHECK
     })
 
 DEF_CMD(IDIV, 22, 0,
     {
-        PUSH((int) (POP / 10));
+        int a = (int) POP;
+        int b = (int) POP;
+        PUSH(a / b);
         CPUCHECK
     })
 
@@ -165,14 +170,7 @@ DEF_CMD(RAMW, 23, 0,
         CPUCHECK
     })
 
-DEF_CMD(NRT, 24, 0,
+DEF_CMD(FLOOR, 24, 0,
     {
-        printf("This equation has no roots");
-        CPUCHECK
-    })
-
-DEF_CMD(INF, 25, 0,
-    {
-        printf("This equation has infinite number of roots");
-        CPUCHECK
+        PUSH((int) POP);
     })
