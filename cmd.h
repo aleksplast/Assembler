@@ -11,10 +11,10 @@
             cpu->ip += sizeof(int);                                         \
         CPUCHECK
 
-#define ARITHOPER(oper, ...)                                                     \
-        elem_t val1 = POP;                                                  \
-        elem_t val2 = POP;
-        __VA_ARGS__;                                                  \
+#define ARITHOPER(oper, type, ...)                                          \
+        type val1 = (type) POP;                                             \
+        type val2 = (type) POP;                                             \
+        __VA_ARGS__                                                         \
         PUSH(val1 oper val2);                                               \
         CPUCHECK
 
@@ -28,30 +28,27 @@ DEF_CMD(PUSH, 1, 1,
 
 DEF_CMD(ADD, 2 , 0,
     {
-        ARITHOPER(+)
+        ARITHOPER(+, elem_t)
     })
 
 DEF_CMD(SUB, 3, 0,
     {
-        ARITHOPER(-)
+        ARITHOPER(-, elem_t)
     })
 
 DEF_CMD(MUL, 4, 0,
     {
-        ARITHOPER(*)
+        ARITHOPER(*, elem_t)
     })
 
 DEF_CMD(DIV, 5, 0,
     {
-        elem_t a = POP;
-        elem_t b = POP;
-        if (compare(b, 0) == 0)
+        ARITHOPER(/, elem_t,
+        if (compare(val2, 0) == 0)
         {
             printf("Error: cannot divide by 0");
             return ARITHERR;
-        }
-        PUSH(a / b);
-        CPUCHECK
+        })
     })
 
 DEF_CMD(OUT, 6, 0,
@@ -151,18 +148,12 @@ DEF_CMD(SQRD, 20, 0,
 
 DEF_CMD(MOD, 21, 0,
     {
-        int a = (int) POP;
-        int b = (int) POP;
-        PUSH(a % b);
-        CPUCHECK
+        ARITHOPER(%, int)
     })
 
 DEF_CMD(IDIV, 22, 0,
     {
-        int a = (int) POP;
-        int b = (int) POP;
-        PUSH(a / b);
-        CPUCHECK
+        ARITHOPER(/, int)
     })
 
 DEF_CMD(RAMW, 23, 0,

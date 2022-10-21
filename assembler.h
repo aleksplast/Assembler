@@ -18,6 +18,10 @@ int CheckReg(const char* reg);
 
 int GetArg(char* arg, struct asemblr* asemblr);
 
+int GetLabel(struct asemblr* asemblr, int label);
+
+int GetRamArg(char arg[], struct asemblr* asemblr);
+
 int CheckLabel(struct asemblr* asemblr, int label);
 
 int ListingPrint(FILE* out, void* arg, size_t size);
@@ -42,7 +46,7 @@ struct asminfo
 struct asemblr
 {
     FILE* listing;
-    struct asminfo info;
+    struct asminfo header;
     source text;
     char* code;
     struct labels labels;
