@@ -4,7 +4,11 @@
 #include "Common.h"
 #include "text-sort.h"
 
+typedef struct poem source;
+
 int AssemblerMain(struct asemblr* asemblr);
+
+const char* GetComArg(int argc, char* argv[]);
 
 int AsmCtor(struct asemblr* asemblr, const char* input);
 
@@ -18,16 +22,28 @@ int CheckLabel(struct asemblr* asemblr, int label);
 
 int ListingPrint(FILE* out, void* arg, size_t size);
 
+bool CheckForComment(char* line);
+
+int PushLabel(struct asemblr* asemblr, char* cmd);
+
 struct labels
 {
     int* labelsarray;
     int labelsnum;
 };
 
+struct asminfo
+{
+    int sign;
+    int version;
+    int numofel;
+};
+
 struct asemblr
 {
     FILE* listing;
-    struct poem text;
+    struct asminfo info;
+    source text;
     char* code;
     struct labels labels;
     int ip;

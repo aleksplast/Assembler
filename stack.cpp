@@ -320,7 +320,7 @@ double GetPoison(double x)
 
 int GetPoison(int x)
 {
-    return 0xDED32DED;
+    return 0xDED32DED32DED32DED;
 }
 
 char GetPoison(char x)

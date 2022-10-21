@@ -8,7 +8,7 @@ enum ComArgs
 {
     ARG_MEM     = 1 << 7,
     ARG_REG     = 1 << 6,
-    ARG_IMMED   = 1 << 5
+    ARG_IMMED   = 1 << 5,
 };
 
 #define DEF_CMD(name, num, arg, code)                                   \

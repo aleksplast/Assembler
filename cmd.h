@@ -3,17 +3,18 @@
 #define PUSH(x) StackPush(&cpu->commands, x)
 
 #define JUMP(sign, numb)                                                    \
-        val1 = POP;                                                         \
-        val2 = POP;                                                         \
+        elem_t val1 = POP;                                                  \
+        elem_t val2 = POP;                                                  \
         if (compare(val1, val2) sign numb)                                  \
             SetLabel(cpu);                                                  \
         else                                                                \
             cpu->ip += sizeof(int);                                         \
         CPUCHECK
 
-#define ARITHOPER(oper)                                                     \
-        val1 = POP;                                                         \
-        val2 = POP;                                                         \
+#define ARITHOPER(oper, ...)                                                     \
+        elem_t val1 = POP;                                                  \
+        elem_t val2 = POP;
+        __VA_ARGS__;                                                  \
         PUSH(val1 oper val2);                                               \
         CPUCHECK
 
@@ -67,7 +68,7 @@ DEF_CMD(HLT, 7, 0,
 
 DEF_CMD(IN, 8, 0,
     {
-        elem_t val;
+        elem_t val = 0;
         scanf("%lg", &val);
         PUSH(val);
         CPUCHECK

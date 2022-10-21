@@ -10,12 +10,15 @@ int AssemblerMain(struct asemblr* asemblr)
 {
     int counter = 0;
 
-    asemblr->ip = 3 * sizeof(int);
+    asemblr->ip = sizeof(asemblr->info);
 
     while (counter < asemblr->text.nlines)
     {
-        char cmd[10];
+        char cmd[10] = "";
         int len = 0;
+
+        if (CheckForComment(asemblr->text.Strings[counter].ptr))
+            counter += 1;
 
         char* line = asemblr->text.Strings[counter].ptr;
 
@@ -35,26 +38,25 @@ int AssemblerMain(struct asemblr* asemblr)
             fprintf(asemblr->listing, "\n");                                        \
             asemblr->ip++;                                                          \
         }                                                                           \
-else
+        else
 #include "..\Assembler\cmd.h"
 #undef DEF_CMD
 
         if (strchr(cmd, ':'))
         {
-            int label = 0;
-            sscanf(cmd, "%d", &label);
-            CheckLabel(asemblr, label);
-            asemblr->labels.labelsarray[label] = asemblr->ip - 3 * sizeof(int);
-            fprintf(asemblr->listing, "\n");
+            PushLabel(asemblr, cmd);
         }
         counter++;
     }
 
-    *(int*) asemblr->code = 'C' + 256 * 'P';
-    *(int*) (asemblr->code + sizeof(int)) = version;
+    *(int*) asemblr->code = asemblr->info.sign;
+    *(int*) (asemblr->code + sizeof(int)) = asemblr->info.version;
     *(int*) (asemblr->code + 2 * sizeof(int)) = asemblr->ip - 3 * sizeof(int);
 
-    FILE* out = fopen("out.txt", "w");
+    FILE* out = fopen("out.txt", "wb");
+
+    if (out == NULL)
+        return FILERR;
 
     fwrite(asemblr->code, sizeof(char), asemblr->ip, out);
 
@@ -75,8 +77,8 @@ int AsmCtor(struct asemblr* asemblr, const char* input)
 
     asemblr->labels.labelsnum = 10;
 
-    for (int i = 0; i < 10; i++)
-        asemblr->labels.labelsarray[i] = 0;
+    asemblr->info.sign = 'C' + 256 * 'P';
+    asemblr->info.version = version;
 
     TextReader(input, &asemblr->text, mode);
 
@@ -84,7 +86,7 @@ int AsmCtor(struct asemblr* asemblr, const char* input)
 
     asemblr->listing = fopen("listing.txt", "w");
 
-    if ((asemblr->code = (char*) calloc(asemblr->text.nlines * (sizeof(char) * 2 + sizeof(int)) + 3 * sizeof(int), sizeof(char))) == NULL)
+    if ((asemblr->code = (char*) calloc(asemblr->text.nlines * (sizeof(char) * 2 + sizeof(elem_t)) + 3 * sizeof(int), sizeof(char))) == NULL)
         return MEMERR;
 }
 
@@ -101,7 +103,7 @@ int AsmDetor(struct asemblr* asemblr)
 
 int GetArg(char* arg, struct asemblr* asemblr)
 {
-    char reg[30];
+    char reg[30] = {};
     elem_t val = 0;
     int len = 0, label = 0;
     char* labelptr = NULL;
@@ -125,11 +127,13 @@ int GetArg(char* arg, struct asemblr* asemblr)
     else if (*arg == '[')
     {
         sscanf(arg, "%s%n", reg, &len);
+
         if (*(arg + len - 1) == ']')
         {
-            asemblr->code[asemblr->ip] = asemblr->code[asemblr->ip] | ARG_MEM;
+            asemblr->code[asemblr->ip] |= ARG_MEM;
             *(arg + len - 1) = ' ';
         }
+
         GetArg(arg + 1, asemblr);
         *(arg + len - 1) = ']';
     }
@@ -164,13 +168,22 @@ int GetArg(char* arg, struct asemblr* asemblr)
 
         fprintf(asemblr->listing, " %02X %02X", asemblr->code[asemblr->ip], asemblr->code[asemblr->ip + 1]);
 
-
         asemblr->ip += 1;
     }
     else
         return ARGERR;
 
     return NOERR;
+}
+
+const char* GetComArg(int argc, char* argv[])
+{
+    const char* input = "input.txt";
+
+    if (argc > 1)
+        return argv[1];
+    else
+        return input;
 }
 
 int CheckReg(const char* reg)
@@ -229,6 +242,34 @@ int ListingPrint(FILE* out, void* arg, size_t size)
             fprintf(out, "%02X ", *(val + i));
         else
             fprintf(out, "%02X ", (-1) * *(val + i));
+
+    return NOERR;
+}
+
+bool CheckForComment(char* line)
+{
+    char* commentptr = NULL;
+
+    if ((commentptr = strchr(line, '#')) != NULL)
+    {
+        if (commentptr == line)
+            return true;
+        else
+            *commentptr = '\0';
+    }
+    else
+        return false;
+
+    return false;
+}
+
+int PushLabel(struct asemblr* asemblr, char* cmd)
+{
+    int label = 0;
+    sscanf(cmd, "%d", &label);
+    CheckLabel(asemblr, label);
+    asemblr->labels.labelsarray[label] = asemblr->ip - sizeof(asemblr->info);
+    fprintf(asemblr->listing, "\n");
 
     return NOERR;
 }

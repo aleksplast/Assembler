@@ -2,12 +2,12 @@
 
 #include "assembler.h"
 
-int main()
+int main(int argc, char* argv[])
 {
     FILE* logs = fopen("logs.txt", "w");
     fclose(logs);
 
-    const char* input = "factorialrec.txt";
+    const char* input = GetComArg(argc, argv);
 
     struct asemblr asemblr = {};
 
