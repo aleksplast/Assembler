@@ -17,7 +17,7 @@ int AsmCtor(struct asemblr* asemblr, const char* input)
     if ((asemblr->labels.labelsarray = (int*) calloc(10, sizeof(int))) == NULL)
         return MEMERR;
 
-    asemblr->labels.labelsnum = 10;
+    asemblr->labels.labelsnum = 50;
 
     asemblr->header.sign = 'C' + 256 * 'P';
     asemblr->header.version = version;
@@ -25,6 +25,7 @@ int AsmCtor(struct asemblr* asemblr, const char* input)
     TextReader(input, &asemblr->text, mode);
 
     LinesSeparator(&asemblr->text, '\n');
+    asemblr->labels.labelstrarray = (labelsstr*) calloc(100, sizeof(labelsstr));
 
     LISTING = fopen("listing.txt", "w");
 
@@ -126,20 +127,25 @@ int GetArg(char* arg, struct asemblr* asemblr)
     elem_t val = 0;
     int len = 0, label = 0;
     char* labelptr = NULL;
+    char labelstr[40] = "";
 
     if ((labelptr = strchr(arg, ':')) != NULL)
     {
         CURRENTCOM |= ARG_IMMED;
 
-        if (sscanf(arg + 1, "%d", &label) != 1)
-            return LABELERR;
-
-        GetLabel(asemblr, label);
+        if (sscanf(arg + 1, "%d", &label) == 1)
+        {
+            GetLabel(asemblr, label);
+            asemblr->ip += sizeof(int);
+        }
+        else if (sscanf(arg + 1, "%s", labelstr) == 1)
+        {
+            GetLabelStr(asemblr, labelstr);
+            asemblr->ip += sizeof(int);
+        }
 
         fprintf(LISTING, " %02X ", CURRENTCOM);
         ListingPrint(LISTING, (int*)(asemblr->code + asemblr->ip + 1), sizeof(int));
-
-        asemblr->ip += sizeof(int);
     }
     else if (*arg == '[')
     {
@@ -189,6 +195,24 @@ int GetLabel(struct asemblr* asemblr, int label)
     CheckLabel(asemblr, label);
 
     *(int*)(asemblr->code + asemblr->ip + 1) = LABELARR[label];
+
+    return NOERR;
+}
+
+int GetLabelStr(asemblr* asemblr, char* label)
+{
+    int counter = 0;
+    while (asemblr->labels.labelstrarray[counter].name != NULL)
+    {
+        if (strcmp(asemblr->labels.labelstrarray[counter].name, label) == 0)
+        {
+            *(int*)(asemblr->code + asemblr->ip + 1) = asemblr->labels.labelstrarray[counter].byte;
+            return NOERR;
+        }
+        counter += 1;
+    }
+
+    *(int*)(asemblr->code + asemblr->ip + 1) = 0;
 
     return NOERR;
 }
@@ -261,12 +285,29 @@ int CheckReg(const char* reg)
 int PushLabel(struct asemblr* asemblr, char* cmd)
 {
     int label = 0;
-    sscanf(cmd, "%d", &label);
+    char* labelstr = (char*) calloc(50, sizeof(char));
 
-    CheckLabel(asemblr, label);
+    if (sscanf(cmd, "%d", &label) == 1)
+    {
+        CheckLabel(asemblr, label);
 
-    LABELARR[label] = asemblr->ip - sizeof(asemblr->header);
-    fprintf(LISTING, "\n");
+        LABELARR[label] = asemblr->ip - sizeof(asemblr->header);
+        fprintf(LISTING, "\n");
+        free(labelstr);
+    }
+    else if (sscanf(cmd, "%[^:]", labelstr) == 1)
+    {
+        int counter = 0;
+
+        while (asemblr->labels.labelstrarray[counter].name != NULL)
+        {
+            counter++;
+        }
+
+        asemblr->labels.labelstrarray[counter].name = labelstr;
+        asemblr->labels.labelstrarray[counter].byte = asemblr->ip - sizeof(asemblr->header);
+        fprintf(LISTING, "\n");
+    }
 
     return NOERR;
 }
@@ -285,6 +326,7 @@ int AsmDetor(struct asemblr* asemblr)
 {
     free(asemblr->text.Strings);
     free(asemblr->code);
+    free(asemblr->labels.labelsarray);
     fclose(LISTING);
     asemblr->code = NULL;
     asemblr->ip = -1;

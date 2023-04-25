@@ -15,7 +15,7 @@
         type val1 = (type) POP;                                             \
         type val2 = (type) POP;                                             \
         __VA_ARGS__                                                         \
-        PUSH(val1 oper val2);                                               \
+        PUSH(val2 oper val1);                                               \
         CPUCHECK
 
 
@@ -44,7 +44,7 @@ DEF_CMD(MUL, 4, 0,
 DEF_CMD(DIV, 5, 0,
     {
         ARITHOPER(/, elem_t,
-        if (compare(val2, 0) == 0)
+        if (compare(val1, 0) == 0)
         {
             printf("Error: cannot divide by 0");
             return ARITHERR;
@@ -165,4 +165,9 @@ DEF_CMD(RAMW, 23, 0,
 DEF_CMD(FLOOR, 24, 0,
     {
         PUSH((int) POP);
+    })
+
+DEF_CMD(SIN, 100, 0,
+    {
+        PUSH(sin(POP));
     })
